@@ -65,7 +65,6 @@ export default function ChatPage() {
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    window.alert("Enviando mensaje: " + input);
     console.log("Chat Submitting:", input);
     if (!input || isLoading) return;
     handleSubmit(e);
@@ -84,7 +83,7 @@ export default function ChatPage() {
             <h2 className="text-sm font-bold text-slate-900 dark:text-white">A-G-A Expert</h2>
             <div className="flex items-center gap-1.5">
                <div className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-               <span className="text-[10px] font-medium text-emerald-600 uppercase tracking-wider">Neuronal Engine v3.0 [ACTIVO]</span>
+               <span className="text-[10px] font-medium text-emerald-600 uppercase tracking-wider">Neuronal Engine v2.0</span>
             </div>
           </div>
         </div>
