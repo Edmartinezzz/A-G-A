@@ -1,6 +1,7 @@
 "use client"
 
 import { useChat } from "@ai-sdk/react"
+import { DefaultChatTransport } from "ai"
 import { useState, useEffect, useRef } from "react"
 import { 
   Send, 
@@ -21,13 +22,16 @@ import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/card"
 
 export default function ChatPage() {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, error } = useChat({
-    api: '/api/chat',
+  const [input, setInput] = useState("")
+  const { messages, sendMessage, status, error } = useChat({
+    transport: new DefaultChatTransport({ api: '/api/chat' }),
     onError: (err) => {
       console.error("Chat Error:", err);
       alert("Error al conectar con A-G-A: " + err.message);
     }
   })
+
+  const isLoading = status === "streaming" || status === "submitted"
   const scrollRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll logic
@@ -65,9 +69,11 @@ export default function ChatPage() {
 
   const handleChatSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log("Chat Submitting:", input);
-    if (!input || isLoading) return;
-    handleSubmit(e);
+    const trimmed = input.trim();
+    if (!trimmed || isLoading) return;
+    console.log("Chat Submitting:", trimmed);
+    sendMessage({ role: "user", parts: [{ type: "text", text: trimmed }] });
+    setInput("");
   };
 
   return (
@@ -199,7 +205,7 @@ export default function ChatPage() {
           
           <Input 
             value={input}
-            onChange={handleInputChange}
+            onChange={(e) => setInput(e.target.value)}
             placeholder="Escribe tu consulta aduanal aquí..."
             className="w-full h-14 pl-14 pr-24 bg-white dark:bg-slate-800 border-none shadow-xl rounded-full focus-visible:ring-2 focus-visible:ring-emerald-500/50 text-sm font-medium"
           />

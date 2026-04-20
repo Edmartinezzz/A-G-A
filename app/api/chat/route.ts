@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, Message } from 'ai';
+import { streamText, UIMessage, convertToModelMessages } from 'ai';
 import { getEmbedding } from '@/lib/embeddings';
 import { createServerSideClient } from '@/lib/supabase-server';
 
@@ -15,8 +15,13 @@ const groq = createOpenAI({
  */
 export async function POST(req: Request) {
   try {
-    const { messages }: { messages: Message[] } = await req.json();
-    const lastMessage = messages[messages.length - 1]?.content;
+    const { messages }: { messages: UIMessage[] } = await req.json();
+    // Extract text from the parts array of the last message
+    const lastParts = messages[messages.length - 1]?.parts ?? [];
+    const lastMessage = lastParts
+      .filter((p: any) => p.type === 'text')
+      .map((p: any) => p.text)
+      .join('') || '';
 
     let systemContext = "";
 
@@ -71,7 +76,7 @@ ${systemContext}
     const result = await streamText({
       model: groq('llama-3.3-70b-versatile'),
       system: FINAL_SYSTEM_PROMPT,
-      messages,
+      messages: await convertToModelMessages(messages),
       temperature: 0.1, // Baja temperatura para mayor fidelidad técnica
     });
 
