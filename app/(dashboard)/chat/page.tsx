@@ -42,7 +42,7 @@ export default function ChatPage() {
             .select('messages')
             .eq('user_id', user.id)
             .eq('session_id', 'default')
-            .single()
+            .maybeSingle()
 
           if (dbError) {
              console.log("No previous history found or DB access error.");
