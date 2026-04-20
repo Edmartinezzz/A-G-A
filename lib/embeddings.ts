@@ -5,7 +5,7 @@
  * Modelo: sentence-transformers/all-MiniLM-L6-v2 (384 dimensiones).
  */
 
-const HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2";
+const HUGGINGFACE_API_URL = "https://api-inference.huggingface.co/models/sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2";
 const HF_TOKEN = process.env.HUGGINGFACE_TOKEN;
 
 /**
