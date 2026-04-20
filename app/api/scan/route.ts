@@ -7,7 +7,13 @@ import { createServerSideClient } from '@/lib/supabase-server';
 import { calcularCostosNacionalizacion } from '@/lib/aduanas/calculadora';
 import { searchWeb } from '@/lib/search-serper';
 
-// Configuración de Groq para Visión (Respaldo rápido)
+// Configuración de Silicon Flow (Motor Principal Llama 3.2 Vision)
+const siliconFlow = createOpenAI({
+  apiKey: process.env.SILICON_FLOW_API_KEY,
+  baseURL: 'https://api.siliconflow.cn/v1',
+});
+
+// Configuración de Groq (Respaldo)
 const groq = createOpenAI({
   apiKey: process.env.GROQ_API_KEY,
   baseURL: 'https://api.groq.com/openai/v1',
@@ -22,7 +28,7 @@ const ScanSchema = z.object({
 });
 
 /**
- * Fase FINAL: Pipeline de Visión Ultra-Rápido (Optimizado para Vercel)
+ * Fase 7: Pipeline de Visión Versión 3 (Silicon Flow + Llama 3.2 Vision)
  */
 export async function POST(req: Request) {
   const startTime = Date.now();
@@ -30,8 +36,8 @@ export async function POST(req: Request) {
   try {
     const { 
       imageBase64, 
-      valorFOB = 1000, 
-      flete = 200, 
+      valorFOB = 1, // Default para simulación si no se envía
+      flete = 0, 
       seguro = null,
       tasaIVA = 16,
       tasaServicioAduanal = 1
@@ -42,19 +48,19 @@ export async function POST(req: Request) {
     }
 
     const base64Data = imageBase64.split(',')[1] || imageBase64;
+    // Buffer es mejor para compatibilidad multiplataforma en el AI SDK
     const imageBuffer = Buffer.from(base64Data, 'base64');
     
     let visualData: any = null;
-    let fallbackCerebro = "Desconocido";
+    let cerebroActivo = "Desconocido";
 
-    // ── PASO 1: Análisis Visual Prioritario (Gemini 1.5 Flash) ──
-    // Elegimos Gemini como primario por ser el más estable y rápido en visión integrada.
-    const visionSystemPrompt = 'Analiza detalladamente esta imagen para propósitos de clasificación aduanera. Extrae datos precisos en formato JSON.';
+    // ── PASO 1: Análisis Visual (Silicon Flow Primary) ──
+    const visionSystemPrompt = 'Eres un experto aduanero. Identifica el producto en la imagen y responde con su nombre técnico, material y HS Code sugerido.';
     
     try {
-      console.log(`[SCAN-1] Intentando Gemini (Primario)...`);
+      console.log(`[SCAN-1] Intentando Silicon Flow (Llama 3.2 Vision)...`);
       const { object } = await generateObject({
-        model: google('gemini-1.5-flash-latest'),
+        model: siliconFlow('Pro/meta-llama/Llama-3.2-11B-Vision-Instruct'),
         schema: ScanSchema,
         messages: [
           {
@@ -67,16 +73,15 @@ export async function POST(req: Request) {
         ],
       });
       visualData = object;
-      fallbackCerebro = "Gemini Flash (Estable)";
+      cerebroActivo = "Silicon Flow (Version 3)";
     } catch (e1: any) {
-      const geminiError = e1.message || "Error desconocido";
-      console.warn("[!] Gemini failed:", geminiError);
+      console.warn("[!] Silicon Flow falló:", e1.message);
       
-      // Fallback a Groq (Llama 3.2 11B Vision) - Lo más rápido si Gemini falla
+      // Fallback 1: Gemini 1.5 Flash (Muy estable)
       try {
-        console.log(`[SCAN-2] Intentando Groq (Respaldo)...`);
+        console.log(`[SCAN-2] Intentando Gemini Flash fallback...`);
         const { object } = await generateObject({
-          model: groq('llama-3.2-11b-vision-preview'),
+          model: google('gemini-1.5-flash-latest'),
           schema: ScanSchema,
           messages: [
             {
@@ -89,41 +94,26 @@ export async function POST(req: Request) {
           ],
         });
         visualData = object;
-        fallbackCerebro = "Groq Llama 3.2 (Respaldo)";
+        cerebroActivo = "Gemini Flash (Respaldo)";
       } catch (e2: any) {
-        const groqError = e2.message || "Error desconocido";
-        console.error("[!] Groq failed:", groqError);
-        throw new Error(`Total Vision Failure. \nGemini: ${geminiError} \nGroq: ${groqError}`);
+         console.error("[!] Total Vision failure.");
+         throw new Error(`Error crítico en todos los cerebros de visión. Silicon: ${e1.message} | Gemini: ${e2.message}`);
       }
     }
 
-    // ── PASO 2: Búsqueda Semántica en Base de Datos (RAG) ──
+    // ── PASO 2: Búsqueda Semántica de Aranceles Reales ──
     const embedding = await getEmbedding(visualData.nombre_tecnico);
     const supabase = await createServerSideClient();
     
     const { data: matches } = await supabase.rpc('match_aranceles', {
       query_embedding: embedding,
-      match_threshold: 0.5,
+      match_threshold: 0.4, // Umbral un poco más flexible para asegurar resultados
       match_count: 1, 
     });
 
     let matchReal = matches && matches.length > 0 ? matches[0] : null;
-    let webContext = "";
 
-    // ── PASO 3: Web Discovery (Opcional, solo si hay tiempo) ──
-    // Si la búsqueda DB fue buena (> 75% similitud), saltamos la web para ahorrar tiempo.
-    if (!matchReal || matchReal.similarity < 0.75) {
-      try {
-        const searchResults = await searchWeb(`arancel venezuela ${visualData.nombre_tecnico}`);
-        if (searchResults && searchResults.length > 0) {
-          webContext = searchResults[0].snippet;
-        }
-      } catch (sErr) {
-        console.log("Web search skipped or failed.");
-      }
-    }
-
-    // ── PASO 4: Cálculo de Impuestos ──
+    // ── PASO 3: Cálculo de Nacionalización ──
     const tasaFinal = matchReal ? Number(matchReal.standard_arancel) : 0;
     
     const calculo = calcularCostosNacionalizacion({
@@ -138,25 +128,24 @@ export async function POST(req: Request) {
     return Response.json({
       success: true,
       data: {
-        cerebro_activo: fallbackCerebro,
+        cerebro_activo: cerebroActivo,
         analisis_visual: visualData,
-        web_discovery: webContext || "Clasificación mediante base de datos maestra",
         database_match: matchReal ? {
           nombre_oficial: matchReal.name,
           hs_code_oficial: matchReal.hs_code,
           similitud: Math.round(matchReal.similarity * 100) + "%",
           restricciones: matchReal.restricciones
-        } : { info: "Resultados basados en análisis visual heurístico." },
+        } : { info: "Clasificación basada en inteligencia visual heurística." },
         calculo_estimado: calculo,
         timing: Date.now() - startTime
       }
     });
 
   } catch (error: any) {
-    console.error("Scanner Pipeline Error:", error);
+    console.error("Scanner V3 Error:", error);
     return Response.json({ 
-      error: error.message || "Error en el pipeline de visión",
-      code: 'SCAN_FAILURE'
+      error: error.message || "Fallo crítico en el pipeline de visión",
+      details: error.stack
     }, { status: 500 });
   }
 }

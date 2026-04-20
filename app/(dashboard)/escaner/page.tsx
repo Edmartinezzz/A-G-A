@@ -108,16 +108,53 @@ export default function EscanerPage() {
     }
   }
 
+  // Utilidad de Compresión Ultra-Rápida
+  const compressImage = (base64: string, maxWidth = 1024): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height *= maxWidth / width;
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxWidth) {
+            width *= maxWidth / height;
+            height = maxWidth;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.7)); // 0.7 es ideal para visión AI
+      };
+      img.src = base64;
+    });
+  };
+
   // Función principal de análisis
   const processAnalysis = async (base64: string) => {
     setIsAnalyzing(true)
-    setPreviewImage(base64)
     
     try {
+      // COMPRESIÓN: Encogemos la imagen para que Vercel no la rechace y sea rápido
+      const compressedBase64 = await compressImage(base64);
+      setPreviewImage(compressedBase64)
+      
       const response = await fetch('/api/scan', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ imageBase64: base64 }),
+        body: JSON.stringify({ 
+          imageBase64: compressedBase64,
+          valorFOB: 1, // Valor simbólico para la clasificación inicial
+        }),
       });
       
       const res = await response.json();
