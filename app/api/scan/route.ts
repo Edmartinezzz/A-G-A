@@ -43,8 +43,11 @@ export async function POST(req: Request) {
     }
 
     const base64Data = imageBase64.split(',')[1] || imageBase64;
+    const imageBuffer = Buffer.from(base64Data, 'base64');
+    
     let visualData: any = null;
     let fallbackCerebro = "Desconocido";
+    let lastError = "";
 
     // ── PASO 1: Análisis Visual Multi-Cerebro ──
     const visionSystemPrompt = 'Analiza detalladamente esta imagen para propósitos de clasificación aduanera. Extrae datos precisos en formato JSON.';
@@ -60,15 +63,16 @@ export async function POST(req: Request) {
             role: 'user',
             content: [
               { type: 'text', text: visionSystemPrompt },
-              { type: 'image', image: base64Data },
+              { type: 'image', image: imageBuffer, mimeType: 'image/jpeg' },
             ],
           },
         ],
       });
       visualData = object;
       fallbackCerebro = "Groq Vision";
-    } catch (e1) {
-      console.error("[!] Groq Vision falló:", (e1 as any).message);
+    } catch (e1: any) {
+      console.error("[!] Groq Vision falló:", e1.message);
+      lastError = `Groq: ${e1.message}`;
       
       // Intento 2: OPENAI (GPT-4o) - Profundidad visual
       try {
@@ -81,15 +85,16 @@ export async function POST(req: Request) {
               role: 'user',
               content: [
                 { type: 'text', text: visionSystemPrompt },
-                { type: 'image', image: base64Data },
+                { type: 'image', image: imageBuffer, mimeType: 'image/jpeg' },
               ],
             },
           ],
         });
         visualData = object;
         fallbackCerebro = "OpenAI GPT-4o";
-      } catch (e2) {
-        console.error("[!] OpenAI Vision falló:", (e2 as any).message);
+      } catch (e2: any) {
+        console.error("[!] OpenAI Vision falló:", e2.message);
+        lastError += ` | OpenAI: ${e2.message}`;
 
         // Intento 3: GEMINI (1.5 Flash) - Respaldo robusto
         try {
@@ -102,16 +107,17 @@ export async function POST(req: Request) {
                 role: 'user',
                 content: [
                   { type: 'text', text: visionSystemPrompt },
-                  { type: 'image', image: base64Data },
+                  { type: 'image', image: imageBuffer, mimeType: 'image/jpeg' },
                 ],
               },
             ],
           });
           visualData = object;
           fallbackCerebro = "Gemini Flash";
-        } catch (e3) {
+        } catch (e3: any) {
           console.error("[!] Total Vision failure.");
-          throw new Error("Ningún motor de visión pudo analizar la imagen. Revisa los créditos de API.");
+          lastError += ` | Gemini: ${e3.message}`;
+          throw new Error(`Ningún motor de visión pudo analizar la imagen. Detalles: ${lastError}`);
         }
       }
     }
