@@ -1,28 +1,26 @@
 import { google } from '@ai-sdk/google';
+import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, UIMessage, convertToModelMessages } from 'ai';
 import { getEmbedding } from '@/lib/embeddings';
 import { createServerSideClient } from '@/lib/supabase-server';
+
+// ── PROVEEDORES DE SEGURIDAD (CEREBROS ALTERNATIVOS) ──
+const groq = createOpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: 'https://api.groq.com/openai/v1',
+});
+
+const huggingface = createOpenAI({
+  apiKey: process.env.HUGGINGFACE_TOKEN,
+  baseURL: 'https://api-inference.huggingface.co/v1',
+});
 
 export async function POST(req: Request) {
   const startTime = Date.now();
   
   // ── PRE-CHECK: Configuración del Sistema ──
-  if (!process.env.GOOGLE_GENERATIVE_AI_API_KEY) {
-    console.error("[Chat] CRÍTICO: GOOGLE_GENERATIVE_AI_API_KEY no encontrada en variables de entorno.");
-    return new Response(JSON.stringify({ 
-      error: "Configuración Incompleta",
-      details: "La API Key de Google no está configurada en el servidor (Vercel/Local).",
-      code: "MISSING_API_KEY"
-    }), { status: 500, headers: { 'Content-Type': 'application/json' } });
-  }
-
-  // 1. Identificar al usuario (vía Headers del Proxy)
   const userId = req.headers.get('x-aga-user-id');
   const userEmail = req.headers.get('x-aga-user-email');
-
-  if (!userId) {
-    console.warn("[Chat] Petición sin userId identificado.");
-  }
 
   try {
     const body = await req.json();
@@ -38,28 +36,20 @@ export async function POST(req: Request) {
       .map((p: any) => p.text)
       .join('') || '';
 
-    console.log(`[Chat] Usuario ${userEmail || 'Anon'}: "${lastMessage.slice(0, 30)}..."`);
-
     let systemContext = "";
 
     // ── PASO 1: RAG (Recuperación Semántica) ──
     try {
       const ragStart = Date.now();
-      console.log(`[PASO 1] Generando embedding...`);
       const embedding = await getEmbedding(lastMessage);
-      
-      console.log(`[PASO 2] Buscando en Supabase (${Date.now() - ragStart}ms)...`);
       const supabase = await createServerSideClient();
       const { data: matches, error: rpcError } = await supabase.rpc('match_aranceles', {
         query_embedding: embedding,
-        match_threshold: 0.5,
+        match_threshold: 0.4, // Más flexible para el modo diagnóstico
         match_count: 3,
       });
 
-      if (rpcError) console.error("[!] RPC Match Error:", rpcError);
-
       if (matches && matches.length > 0) {
-        console.log(`[OK] ${matches.length} coincidencias encontradas.`);
         systemContext = "\n[Contexto Real Encontrado]:\n";
         matches.forEach((m: any) => {
           const alertas = m.restricciones && m.restricciones.length > 0
@@ -67,8 +57,6 @@ export async function POST(req: Request) {
             : "Ninguna";
           systemContext += `Producto: ${m.name}, Arancel: ${m.standard_arancel}%, Alertas: ${alertas}\n`;
         });
-      } else {
-        console.log(`[INFO] No se hallaron datos arancelarios específicos.`);
       }
     } catch (ragError: any) {
       console.error("[!] Error en RAG:", ragError.message);
@@ -81,55 +69,88 @@ Estructura: Resumen, Desglose, Alertas.
 ${systemContext}
 `;
 
-    console.log(`[PASO 3] Iniciando Stream con Gemini Pro (${Date.now() - startTime}ms)...`);
-    const apiKeyExists = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    console.log(`[DEBUG] API Key detectada: ${apiKeyExists ? 'SÍ' : 'NO'}`);
+    // ── ESTRATEGIA MULTI-CEREBRO ──
+    
+    // Función auxiliar para guardar el historial independientemente de qué cerebro responda
+    const onFinishGeneration = async ({ text }: { text: string }) => {
+      console.log(`[PASO 4] Generación terminada. Guardando historial (${Date.now() - startTime}ms)...`);
+      if (userId) {
+        try {
+          const supabase = await createServerSideClient();
+          const assistantMessage = { 
+            id: crypto.randomUUID(), 
+            role: 'assistant', 
+            parts: [{ type: 'text', text }], 
+            createdAt: new Date() 
+          };
+          const fullHistory = [
+            ...messages,
+            assistantMessage
+          ];
+          await supabase.from('chat_history').upsert({
+            user_id: userId,
+            session_id: 'default',
+            messages: fullHistory,
+            updated_at: new Date()
+          }, { onConflict: 'user_id, session_id' });
+          console.log("[OK] Historial sincronizado.");
+        } catch (e) {
+          console.error("[!] Error al sincronizar historial:", e);
+        }
+      }
+    };
 
-    // ── PASO 2: Streaming con Gemini ──
+    // Intento 1: GEMINI (Google)
     try {
+      console.log(`[CEREBRO 1] Intentando Gemini (${Date.now() - startTime}ms)...`);
       const result = await streamText({
         model: google('gemini-1.5-flash'),
         system: FINAL_SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         temperature: 0.1,
-        onFinish: async ({ text }) => {
-          console.log(`[PASO 4] Generación terminada. Guardando historial (${Date.now() - startTime}ms)...`);
-          if (userId) {
-            try {
-              const supabase = await createServerSideClient();
-              const assistantMessage = { 
-                id: crypto.randomUUID(), 
-                role: 'assistant', 
-                parts: [{ type: 'text', text }], 
-                createdAt: new Date() 
-              };
-              const fullHistory = [
-                ...messages,
-                assistantMessage
-              ];
-              await supabase.from('chat_history').upsert({
-                user_id: userId,
-                session_id: 'default',
-                messages: fullHistory,
-                updated_at: new Date()
-              }, { onConflict: 'user_id, session_id' });
-              console.log("[OK] Historial sincronizado.");
-            } catch (e) {
-              console.error("[!] Error al sincronizar historial:", e);
-            }
-          }
-        }
+        onFinish: onFinishGeneration
       });
-
       return result.toUIMessageStreamResponse();
-    } catch (genError: any) {
-      console.error("[!] Error en Gemini:", genError);
-      return new Response(JSON.stringify({ 
-        error: "Fallo Motor IA", 
-        details: genError.message, 
-        code: 'GEMINI_FAIL' 
-      }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+    } catch (e1) {
+      console.error("[!] CEREBRO 1 (Gemini) falló:", (e1 as any).message);
+      
+      // Intento 2: GROQ (Llama 3)
+      try {
+        console.log(`[CEREBRO 2] Intentando Groq Llama 3 (${Date.now() - startTime}ms)...`);
+        const result = await streamText({
+          model: groq('llama-3.1-70b-versatile'),
+          system: FINAL_SYSTEM_PROMPT,
+          messages: await convertToModelMessages(messages),
+          temperature: 0.1,
+          onFinish: onFinishGeneration
+        });
+        return result.toUIMessageStreamResponse();
+      } catch (e2) {
+        console.error("[!] CEREBRO 2 (Groq) falló:", (e2 as any).message);
+        
+        // Intento 3: HUGGING FACE (Llama 8B)
+        try {
+          console.log(`[CEREBRO 3] Intentando Hugging Face (${Date.now() - startTime}ms)...`);
+          const result = await streamText({
+            model: huggingface('meta-llama/Llama-3.1-8B-Instruct'),
+            system: FINAL_SYSTEM_PROMPT,
+            messages: await convertToModelMessages(messages),
+            temperature: 0.1,
+            onFinish: onFinishGeneration
+          });
+          return result.toUIMessageStreamResponse();
+        } catch (e3) {
+          console.error("[!] CEREBRO 3 (Hugging Face) falló:", (e3 as any).message);
+          
+          return new Response(JSON.stringify({ 
+            error: "Fallo Multicerebro", 
+            details: "Todos los motores de IA fallaron simultáneamente. Revisa tu conexión o créditos.", 
+            code: 'TOTAL_BRAIN_FAILURE' 
+          }), { status: 500 });
+        }
+      }
     }
+
   } catch (error: any) {
     console.error("[!] Error Crítico de Servidor:", error);
     return new Response(JSON.stringify({ 
