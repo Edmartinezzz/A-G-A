@@ -3,6 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, UIMessage, convertToModelMessages } from 'ai';
 import { getEmbedding } from '@/lib/embeddings';
 import { createServerSideClient } from '@/lib/supabase-server';
+import { searchWeb } from '@/lib/search-serper';
 
 // ── PROVEEDORES DE SEGURIDAD (CEREBROS ALTERNATIVOS) ──
 const groq = createOpenAI({
@@ -41,37 +42,71 @@ export async function POST(req: Request) {
       .map((p: any) => p.text)
       .join('') || '';
 
-    let systemContext = "";
+    let localContext = "";
+    let webContext = "";
 
-    // ── PASO 1: RAG (Recuperación Semántica) ──
+    // ── PASO 1: Inteligencia Dual (RAG Local + Búsqueda Web) ──
     try {
-      const ragStart = Date.now();
-      const embedding = await getEmbedding(lastMessage);
-      const supabase = await createServerSideClient();
-      const { data: matches, error: rpcError } = await supabase.rpc('match_aranceles', {
-        query_embedding: embedding,
-        match_threshold: 0.4, // Más flexible para el modo diagnóstico
-        match_count: 3,
-      });
+      const searchTasks = [];
 
-      if (matches && matches.length > 0) {
-        systemContext = "\n[Contexto Real Encontrado]:\n";
-        matches.forEach((m: any) => {
-          const alertas = m.restricciones && m.restricciones.length > 0
-            ? m.restricciones.map((r: any) => `${r.tipo}: ${r.descripcion}`).join(", ")
-            : "Ninguna";
-          systemContext += `Producto: ${m.name}, Arancel: ${m.standard_arancel}%, Alertas: ${alertas}\n`;
-        });
+      // Task A: Búsqueda Local (Supabase)
+      const localSearch = (async () => {
+        try {
+          const embedding = await getEmbedding(lastMessage);
+          const supabase = await createServerSideClient();
+          const { data: matches } = await supabase.rpc('match_aranceles', {
+            query_embedding: embedding,
+            match_threshold: 0.4,
+            match_count: 3,
+          });
+
+          if (matches && matches.length > 0) {
+            localContext = "\n[CONTEXTO LOCAL]:\n";
+            matches.forEach((m: any) => {
+              const alertas = m.restricciones && m.restricciones.length > 0
+                ? m.restricciones.map((r: any) => `${r.tipo}: ${r.descripcion}`).join(", ")
+                : "Ninguna";
+              localContext += `Producto: ${m.name}, Arancel: ${m.standard_arancel}%, Alertas: ${alertas}\n`;
+            });
+          }
+        } catch (e) {
+          console.error("[!] Error en RAG Local:", e);
+        }
+      })();
+      searchTasks.push(localSearch);
+
+      // Task B: Búsqueda Web (Serper) - Solo si la consulta parece informativa o de actualidad
+      const needsWeb = /202|actualidad|noticia|nuevo|ley|gaceta|cambio|seniat|venezuela|hoy/i.test(lastMessage);
+      if (needsWeb) {
+        const webSearch = (async () => {
+          try {
+            console.log(`[WEB] Buscando en Google...`);
+            const results = await searchWeb(lastMessage + " gaceta oficial venezuela aduanas");
+            if (results && results.length > 0) {
+              webContext = "\n[CONTEXTO WEB ACTUALIZADO]:\n";
+              results.slice(0, 4).forEach((r) => {
+                webContext += `- ${r.title}: ${r.snippet} (Fuente: ${r.link})\n`;
+              });
+            }
+          } catch (e) {
+            console.error("[!] Error en Búsqueda Web:", e);
+          }
+        })();
+        searchTasks.push(webSearch);
       }
-    } catch (ragError: any) {
-      console.error("[!] Error en RAG:", ragError.message);
+
+      await Promise.all(searchTasks);
+    } catch (dualError: any) {
+      console.error("[!] Error en Inteligencia Dual:", dualError);
     }
 
     const FINAL_SYSTEM_PROMPT = `
 Eres A-G-A (Asistente de Gestión Aduanal).
-Instrucciones: Responde usando el [Contexto Real] si existe. Si no, pide detalles.
+Instrucciones: Utiliza tanto el [CONTEXTO LOCAL] como el [CONTEXTO WEB ACTUALIZADO] para dar la respuesta más precisa.
+Si encuentras información del 2026 en el contexto web, dales prioridad absoluta.
 Estructura: Resumen, Desglose, Alertas.
-${systemContext}
+${localContext}
+${webContext}
 `;
 
     // ── ESTRATEGIA MULTI-CEREBRO ──
