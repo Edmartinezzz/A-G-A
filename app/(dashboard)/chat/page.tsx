@@ -29,11 +29,17 @@ export default function ChatPage() {
   const [initialMessages, setInitialMessages] = useState<any[]>([])
   const [isHistoryLoading, setIsHistoryLoading] = useState(true)
   const [appError, setAppError] = useState<{ message: string; details?: string } | null>(null)
+  const [debugLogs, setDebugLogs] = useState<string[]>(["SISTEMA: Inicializando..."])
+
+  const addLog = (msg: string) => {
+    setDebugLogs(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${msg}`])
+  }
 
   // 1. Cargar historial de Supabase al iniciar
   useEffect(() => {
     async function loadHistory() {
       try {
+        addLog("DB: Cargando historial...")
         const { data: { user } } = await supabase.auth.getUser()
         
         if (user) {
@@ -45,26 +51,32 @@ export default function ChatPage() {
             .maybeSingle()
 
           if (dbError) {
-             console.log("No previous history found or DB access error.");
+             addLog("DB: Error al consultar datos.")
           }
 
           if (data?.messages) {
+            addLog(`DB: ${data.messages.length} mensajes cargados.`)
             setInitialMessages(data.messages)
+          } else {
+            addLog("DB: No hay historial previo.")
           }
         }
       } catch (err) {
-        console.error("Error loading history:", err)
+        addLog("DB: Fallo crítico de conexión.")
       } finally {
         setIsHistoryLoading(false)
       }
     }
     loadHistory()
   }, [])
-
   const { messages, sendMessage, status, error, setMessages } = useChat({
     transport: new DefaultChatTransport({ api: '/api/chat' }),
     messages: initialMessages,
+    onFinish: () => {
+      addLog("IA: Mensaje generado con éxito.")
+    },
     onError: async (err) => {
+      addLog(`ERROR: Fallo en el stream.`)
       console.error("Chat Error:", err);
       try {
         const responseJson = JSON.parse(err.message);
@@ -127,8 +139,9 @@ export default function ChatPage() {
     const trimmed = input.trim();
     if (!trimmed || isLoading) return;
     
-    setAppError(null); // Limpiar errores previos
+    setAppError(null); 
     setInput("");
+    addLog("IA: Procesando envío de consulta...")
     sendMessage({
       role: "user",
       parts: [{ type: "text", text: trimmed }],
@@ -149,19 +162,19 @@ export default function ChatPage() {
             <div className="flex items-center gap-1.5">
                <div className={cn(
                  "h-1.5 w-1.5 rounded-full",
-                 appError ? "bg-red-500" : "bg-emerald-500 animate-pulse"
+                 appError ? "bg-red-500" : (isLoading ? "bg-yellow-500 animate-pulse" : "bg-emerald-500 animate-pulse")
                )} />
                <span className={cn(
                  "text-[10px] font-medium uppercase tracking-wider",
-                 appError ? "text-red-500" : "text-emerald-600"
+                 appError ? "text-red-500" : (isLoading ? "text-yellow-600" : "text-emerald-600")
                )}>
-                 {appError ? "Fallo de conexión" : "Neuronal Engine v2.0"}
+                 {appError ? "Error detectado" : (isLoading ? "Generando respuesta..." : "Neuronal Engine v2.0")}
                </span>
             </div>
           </div>
         </div>
         <div className="flex items-center gap-2">
-           <Button variant="ghost" size="icon" className="text-slate-400 hover:text-emerald-500" title="Historial">
+           <Button variant="ghost" size="icon" className="text-slate-400 hover:text-emerald-500" title="Refrescar" onClick={() => window.location.reload()}>
               <History className="h-4 w-4" />
            </Button>
            <Button variant="ghost" size="icon" className="text-slate-400" onClick={() => window.location.reload()}>
@@ -176,7 +189,23 @@ export default function ChatPage() {
         className="flex-1 p-6"
       >
         <div className="space-y-8 pb-4">
-          {/* Alerta de Error Visible */}
+          {/* Diagnostic Bar / Black Box */}
+          <div className="bg-slate-900 border border-emerald-500/20 rounded-xl p-3 mb-6 font-mono text-[10px] text-emerald-400 shadow-inner">
+             <div className="flex items-center gap-2 mb-2 opacity-50 border-b border-white/5 pb-1">
+                <Search className="h-3 w-3" />
+                <span>MODO DIAGNÓSTICO (CAJA NEGRA)</span>
+             </div>
+             <div className="space-y-0.5">
+                {debugLogs.map((log, i) => (
+                  <div key={i} className="flex gap-2">
+                    <span className="opacity-30">[{i}]</span>
+                    <span>{log}</span>
+                  </div>
+                ))}
+             </div>
+             {isLoading && <div className="mt-2 animate-pulse text-yellow-500">_ ESPERANDO RESPUESTA DEL MOTOR IA...</div>}
+          </div>
+
           <AnimatePresence>
             {appError && (
               <motion.div
@@ -189,13 +218,6 @@ export default function ChatPage() {
                 <div>
                   <h4 className="text-sm font-bold text-red-700">{appError.message}</h4>
                   <p className="text-xs text-red-600 mt-0.5">{appError.details}</p>
-                  <Button 
-                    variant="link" 
-                    className="p-0 h-auto text-[10px] text-red-800 font-black mt-2 uppercase underline underline-offset-4"
-                    onClick={() => window.location.reload()}
-                  >
-                    Reintentar conexión
-                  </Button>
                 </div>
               </motion.div>
             )}
@@ -214,7 +236,9 @@ export default function ChatPage() {
           )}
 
           <AnimatePresence initial={false}>
-            {messages.map((m: any) => (
+            {messages.map((m: any) => {
+              const contentValue = m.content || (m.parts && m.parts.filter((p:any)=>p.type==='text').map((p:any)=>p.text).join('')) || '';
+              return (
               <motion.div
                 key={m.id}
                 initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -247,12 +271,12 @@ export default function ChatPage() {
                       ? "bg-emerald-600 text-white rounded-tr-none font-medium" 
                       : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-100 dark:border-slate-800"
                   )}>
-                    {m.content}
+                    {contentValue}
                     
-                    {m.role === "assistant" && (m.content.includes("%") || m.content.includes("HS")) && (
+                    {m.role === "assistant" && (contentValue.includes("%") || contentValue.includes("HS")) && (
                       (() => {
-                        const hsMatch = m.content.match(/\d{4}\.\d{2}\.\d{2}/);
-                        const tasaMatch = m.content.match(/\d+%/);
+                        const hsMatch = contentValue.match(/\d{4}\.\d{2}\.\d{2}/);
+                        const tasaMatch = contentValue.match(/\d+%/);
                         if (hsMatch || tasaMatch) {
                           return <RichResponseCard data={{ 
                             hs_code: hsMatch ? hsMatch[0] : "8471.30.00",
@@ -266,7 +290,7 @@ export default function ChatPage() {
                   </div>
                 </div>
               </motion.div>
-            ))}
+            )})}
           </AnimatePresence>
 
           {isLoading && (
@@ -289,23 +313,14 @@ export default function ChatPage() {
       {/* Input Section */}
       <div className="p-6 border-t bg-slate-50/80 dark:bg-slate-900/80 backdrop-blur-md">
         <form onSubmit={handleChatSubmit} className="relative group">
-          <div className="absolute left-4 top-1/2 -translate-y-1/2 flex items-center gap-1">
-             <Button type="button" variant="ghost" size="icon" className="h-8 w-8 text-slate-400 hover:text-emerald-500 rounded-full">
-                <Paperclip className="h-4 w-4" />
-             </Button>
-          </div>
-          
           <Input 
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Escribe tu consulta aduanal aquí..."
-            className="w-full h-14 pl-14 pr-24 bg-white dark:bg-slate-800 border-none shadow-xl rounded-full focus-visible:ring-2 focus-visible:ring-emerald-500/50 text-sm font-medium"
+            className="w-full h-14 pl-6 pr-24 bg-white dark:bg-slate-800 border-none shadow-xl rounded-full focus-visible:ring-2 focus-visible:ring-emerald-500/50 text-sm font-medium"
           />
 
           <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 px-2 pb-0.5">
-             <Button type="button" variant="ghost" size="icon" className="h-10 w-10 text-slate-400 hover:text-emerald-500 rounded-full">
-                <Mic className="h-5 w-5" />
-             </Button>
              <Button 
                 type="submit" 
                 disabled={!input || isLoading} 
@@ -318,10 +333,6 @@ export default function ChatPage() {
              </Button>
           </div>
         </form>
-        <div className="flex items-center justify-center gap-2 mt-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-           <Info className="h-3 w-3" />
-           A-G-A puede generar respuestas incorrectas. Revisa la normativa oficial.
-        </div>
       </div>
     </div>
   )
