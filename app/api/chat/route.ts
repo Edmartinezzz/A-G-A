@@ -91,7 +91,7 @@ ${systemContext}
     // ── PASO 2: Streaming con Gemini ──
     try {
       const result = await streamText({
-        model: googleProvider('gemini-1.5-flash'),
+        model: googleProvider('gemini-1.5-flash-latest'),
         system: FINAL_SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         temperature: 0.1,
