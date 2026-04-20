@@ -150,24 +150,30 @@ export default function ChatPage() {
                   m.role === "user" ? "items-end" : "items-start"
                 )}>
                   <div className={cn(
-                    "px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm",
+                    "px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-sm min-h-[44px] flex flex-col justify-center",
                     m.role === "user" 
                       ? "bg-emerald-600 text-white rounded-tr-none font-medium" 
                       : "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 rounded-tl-none border border-slate-100 dark:border-slate-800"
                   )}>
-                    {m.content}
+                    {m.content || (m.parts && m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(''))}
                     
-                    {/* Simular detección de datos enriquecidos si el contenido tiene aranceles */}
-                    {m.role === "assistant" && (m.content.includes("%") || m.content.includes("HS")) && (
-                      <RichResponseCard data={{ 
-                        hs_code: (m.content.match(/\d{4}\.\d{2}\.\d{2}/) || ["8471.30.00"])[0],
-                        tasa: (m.content.match(/\d+%/) || ["20%"])[0],
-                        descripcion: "Producto detectado en consulta"
-                      }} />
+                    {/* Detección de datos enriquecidos */}
+                    {m.role === "assistant" && (
+                      (() => {
+                        const content = m.content || (m.parts && m.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')) || '';
+                        if (content.includes("%") || content.includes("HS")) {
+                          return <RichResponseCard data={{ 
+                            hs_code: (content.match(/\d{4}\.\d{2}\.\d{2}/) || ["8471.30.00"])[0],
+                            tasa: (content.match(/\d+%/) || ["20%"])[0],
+                            descripcion: "Producto detectado en consulta"
+                          }} />
+                        }
+                        return null;
+                      })()
                     )}
                   </div>
                   <span className="text-[9px] text-slate-400 mt-1 opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold tracking-widest pt-1 px-1">
-                    {m.role === "user" ? "Enviado — 12:45" : "A-G-A Expert — Sync"}
+                    {m.role === "user" ? "Enviado — Sync" : "A-G-A Expert — Sync"}
                   </span>
                 </div>
               </motion.div>
