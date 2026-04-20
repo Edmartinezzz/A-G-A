@@ -1,13 +1,7 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { google } from '@ai-sdk/google';
 import { streamText, UIMessage, convertToModelMessages } from 'ai';
 import { getEmbedding } from '@/lib/embeddings';
 import { createServerSideClient } from '@/lib/supabase-server';
-
-// Forzamos el uso del endpoint v1 (Estable) en lugar de v1beta
-const googleProvider = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-  baseURL: 'https://generativelanguage.googleapis.com/v1',
-});
 
 export async function POST(req: Request) {
   const startTime = Date.now();
@@ -93,26 +87,10 @@ ${systemContext}
 
     // ── PASO 2: Streaming con Gemini ──
     try {
-      // Modificamos el primer mensaje del usuario para incluir las instrucciones de sistema
-      // Esto evita el uso del rol 'system' que dispara el error 'systemInstruction' en v1
-      const processedMessages = [...messages];
-      if (processedMessages.length > 0 && processedMessages[0].role === 'user') {
-        const firstMessage = { ...processedMessages[0] };
-        const originalText = firstMessage.parts
-          .filter((p: any) => p.type === 'text')
-          .map((p: any) => p.text)
-          .join('');
-        
-        firstMessage.parts = [{ 
-          type: 'text', 
-          text: `[INSTRUCCIONES DE SISTEMA: ${FINAL_SYSTEM_PROMPT}]\n\nCONSULTA: ${originalText}` 
-        }];
-        processedMessages[0] = firstMessage;
-      }
-
       const result = await streamText({
-        model: googleProvider('gemini-1.5-flash'),
-        messages: await convertToModelMessages(processedMessages),
+        model: google('gemini-1.5-flash'),
+        system: FINAL_SYSTEM_PROMPT,
+        messages: await convertToModelMessages(messages),
         temperature: 0.1,
         onFinish: async ({ text }) => {
           console.log(`[PASO 4] Generación terminada. Guardando historial (${Date.now() - startTime}ms)...`);
