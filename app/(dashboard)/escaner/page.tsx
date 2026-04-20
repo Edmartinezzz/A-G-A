@@ -36,6 +36,7 @@ export default function EscanerPage() {
   const [hasCamera, setHasCamera] = useState(false)
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
+  const [isSecure, setIsSecure] = useState(true)
   const [showResult, setShowResult] = useState(false)
   const [resultData, setResultData] = useState<any>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
@@ -43,9 +44,15 @@ export default function EscanerPage() {
   
   // Inicializar cámara si es posible
   useEffect(() => {
+    setIsSecure(window.isSecureContext)
     let currentStream: MediaStream | null = null;
 
     async function startCamera() {
+      if (!window.isSecureContext) {
+        setCameraError("La cámara requiere una conexión segura (HTTPS).")
+        return;
+      }
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
           video: { 
@@ -60,19 +67,22 @@ export default function EscanerPage() {
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          videoRef.current.onloadedmetadata = () => {
-            videoRef.current?.play().catch(e => {
-              console.error("Autoplay preventer:", e);
-              setCameraError("Toca la pantalla para activar la cámara.");
-            });
-            setHasCamera(true)
-            setCameraError(null)
+          const playVideo = async () => {
+            try {
+              await videoRef.current?.play()
+              setHasCamera(true)
+              setCameraError(null)
+            } catch (e) {
+              console.error("Autoplay failed:", e)
+              setCameraError("Toca para activar la cámara manualmente.")
+            }
           }
+          videoRef.current.onloadedmetadata = playVideo
         }
       } catch (err: any) {
-        console.warn("Cámara no disponible, usando modo carga de archivo:", err)
+        console.warn("Cámara no disponible:", err)
         setHasCamera(false)
-        setCameraError(err.message || "Error al acceder a la cámara")
+        setCameraError(err.name === 'NotAllowedError' ? "Permiso denegado. Actívalo en ajustes." : err.message)
       }
     }
     
@@ -84,6 +94,19 @@ export default function EscanerPage() {
       }
     }
   }, [])
+
+  // Forzar inicio manual
+  const forceManualStart = async () => {
+    if (videoRef.current) {
+      try {
+        await videoRef.current.play()
+        setHasCamera(true)
+        setCameraError(null)
+      } catch (e) {
+        setCameraError("No se pudo iniciar. Recarga la página.")
+      }
+    }
+  }
 
   // Función principal de análisis
   const processAnalysis = async (base64: string) => {
@@ -115,7 +138,10 @@ export default function EscanerPage() {
 
   // Captura real desde el video
   const handleCapture = () => {
-    if (!hasCamera) return;
+    if (!hasCamera) {
+      forceManualStart()
+      return
+    }
     
     setFlash(true)
     setTimeout(() => setFlash(false), 150)
@@ -157,25 +183,44 @@ export default function EscanerPage() {
       <canvas ref={canvasRef} className="hidden" />
 
       {/* Video Visor */}
-      {hasCamera ? (
-        <video 
-          ref={videoRef} 
-          autoPlay 
-          playsInline 
-          muted 
-          className="absolute inset-0 h-full w-full object-cover z-0"
-        />
-      ) : (
-        <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-4 px-6 text-center">
-           {cameraError && (
-             <div className="mb-4 bg-red-500/10 border border-red-500/20 p-4 rounded-2xl animate-in fade-in slide-in-from-top-4">
-                <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 italic">Advertencia</p>
-                <p className="text-xs text-white font-medium">{cameraError}</p>
-             </div>
+      <video 
+        ref={videoRef} 
+        autoPlay 
+        playsInline 
+        muted 
+        className={`absolute inset-0 h-full w-full object-cover z-0 transition-opacity duration-500 ${hasCamera ? 'opacity-100' : 'opacity-0'}`}
+      />
+
+      {/* Fallback & Error UI */}
+      {!hasCamera && (
+        <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-4 px-6 text-center z-10">
+           {!isSecure && (
+              <div className="mb-4 bg-orange-500/10 border border-orange-500/20 p-4 rounded-2xl">
+                <Info className="h-6 w-6 text-orange-500 mx-auto mb-2" />
+                <p className="text-xs text-white font-bold">¡CONEXIÓN NO SEGURA!</p>
+                <p className="text-[10px] opacity-70">La cámara solo funciona en sitios HTTPS. Usa tu URL de Vercel.</p>
+              </div>
            )}
-           <Camera className="h-12 w-12 opacity-20" />
-           <p className="text-xs font-bold uppercase tracking-widest">Modo Carga Activo</p>
-           <p className="text-[10px] opacity-60">Sube un archivo usando el botón inferior</p>
+           
+           {cameraError && (
+             <motion.div 
+               initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+               className="mb-4 bg-emerald-500/10 border border-emerald-500/20 p-5 rounded-3xl flex flex-col items-center gap-3"
+             >
+                <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center">
+                   <RefreshCw className="h-5 w-5 text-emerald-500 animate-spin-slow" />
+                </div>
+                <p className="text-xs text-white font-medium">{cameraError}</p>
+                <Button variant="outline" size="sm" onClick={forceManualStart} className="bg-emerald-500 border-none text-black font-bold h-9 px-6 rounded-full hover:bg-emerald-400 mt-2">
+                   Activar Cámara
+                </Button>
+             </motion.div>
+           )}
+           
+           {!cameraError && isSecure && <RefreshCw className="h-8 w-8 animate-spin opacity-20" />}
+           
+           <Camera className="h-12 w-12 opacity-10" />
+           <p className="text-xs font-bold uppercase tracking-widest opacity-30">Hardware Visor Link</p>
         </div>
       )}
       
