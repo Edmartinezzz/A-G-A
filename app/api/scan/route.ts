@@ -63,7 +63,7 @@ export async function POST(req: Request) {
             role: 'user',
             content: [
               { type: 'text', text: visionSystemPrompt },
-              { type: 'image', image: imageBuffer, mimeType: 'image/jpeg' },
+              { type: 'image', image: imageBuffer },
             ],
           },
         ],
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
               role: 'user',
               content: [
                 { type: 'text', text: visionSystemPrompt },
-                { type: 'image', image: imageBuffer, mimeType: 'image/jpeg' },
+                { type: 'image', image: imageBuffer },
               ],
             },
           ],
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
                 role: 'user',
                 content: [
                   { type: 'text', text: visionSystemPrompt },
-                  { type: 'image', image: imageBuffer, mimeType: 'image/jpeg' },
+                  { type: 'image', image: imageBuffer },
                 ],
               },
             ],
