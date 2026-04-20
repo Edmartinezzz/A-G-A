@@ -15,6 +15,11 @@ const huggingface = createOpenAI({
   baseURL: 'https://api-inference.huggingface.co/v1',
 });
 
+const siliconflow = createOpenAI({
+  apiKey: process.env.SILICON_FLOW_API_KEY,
+  baseURL: 'https://api.siliconflow.cn/v1',
+});
+
 export async function POST(req: Request) {
   const startTime = Date.now();
   
@@ -128,11 +133,11 @@ ${systemContext}
       } catch (e2) {
         console.error("[!] CEREBRO 2 (Groq) falló:", (e2 as any).message);
         
-        // Intento 3: HUGGING FACE (Llama 8B)
+        // Intento 3: SILICONFLOW (DeepSeek V3)
         try {
-          console.log(`[CEREBRO 3] Intentando Hugging Face (${Date.now() - startTime}ms)...`);
+          console.log(`[CEREBRO 3] Intentando SiliconFlow DeepSeek (${Date.now() - startTime}ms)...`);
           const result = await streamText({
-            model: huggingface('meta-llama/Llama-3.1-8B-Instruct'),
+            model: siliconflow('deepseek-ai/DeepSeek-V3'),
             system: FINAL_SYSTEM_PROMPT,
             messages: await convertToModelMessages(messages),
             temperature: 0.1,
@@ -140,13 +145,28 @@ ${systemContext}
           });
           return result.toUIMessageStreamResponse();
         } catch (e3) {
-          console.error("[!] CEREBRO 3 (Hugging Face) falló:", (e3 as any).message);
-          
-          return new Response(JSON.stringify({ 
-            error: "Fallo Multicerebro", 
-            details: "Todos los motores de IA fallaron simultáneamente. Revisa tu conexión o créditos.", 
-            code: 'TOTAL_BRAIN_FAILURE' 
-          }), { status: 500 });
+          console.error("[!] CEREBRO 3 (SiliconFlow) falló:", (e3 as any).message);
+
+          // Intento 4: HUGGING FACE (Llama 8B)
+          try {
+            console.log(`[CEREBRO 4] Intentando Hugging Face (${Date.now() - startTime}ms)...`);
+            const result = await streamText({
+              model: huggingface('meta-llama/Llama-3.1-8B-Instruct'),
+              system: FINAL_SYSTEM_PROMPT,
+              messages: await convertToModelMessages(messages),
+              temperature: 0.1,
+              onFinish: onFinishGeneration
+            });
+            return result.toUIMessageStreamResponse();
+          } catch (e4) {
+            console.error("[!] CEREBRO 4 (Hugging Face) falló:", (e4 as any).message);
+            
+            return new Response(JSON.stringify({ 
+              error: "Fallo Multicerebro", 
+              details: "Todos los motores de IA fallaron simultáneamente. Revisa tu conexión o créditos.", 
+              code: 'TOTAL_BRAIN_FAILURE' 
+            }), { status: 500 });
+          }
         }
       }
     }
