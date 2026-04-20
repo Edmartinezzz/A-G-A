@@ -1,12 +1,7 @@
-import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { google } from '@ai-sdk/google';
 import { streamText, UIMessage, convertToModelMessages } from 'ai';
 import { getEmbedding } from '@/lib/embeddings';
 import { createServerSideClient } from '@/lib/supabase-server';
-
-// Configuración explícita del proveedor de Google
-const googleProvider = createGoogleGenerativeAI({
-  apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-});
 
 export async function POST(req: Request) {
   const startTime = Date.now();
@@ -93,7 +88,7 @@ ${systemContext}
     // ── PASO 2: Streaming con Gemini ──
     try {
       const result = await streamText({
-        model: googleProvider('gemini-1.5-pro-latest'),
+        model: google('gemini-1.5-flash'),
         system: FINAL_SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         temperature: 0.1,
