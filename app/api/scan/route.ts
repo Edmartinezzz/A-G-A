@@ -1,14 +1,33 @@
+import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
+import { createOpenAI } from '@ai-sdk/openai';
 import { generateObject } from 'ai';
 import { z } from 'zod';
 import { getEmbedding } from '@/lib/embeddings';
 import { createServerSideClient } from '@/lib/supabase-server';
 import { calcularCostosNacionalizacion } from '@/lib/aduanas/calculadora';
+import { searchWeb } from '@/lib/search-serper';
+
+// Configuración de Groq para Visión
+const groq = createOpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: 'https://api.groq.com/openai/v1',
+});
+
+// Schema común para la extracción de datos de mercancía
+const ScanSchema = z.object({
+  nombre_tecnico: z.string().describe('Nombre específico y técnico del producto.'),
+  material_principal: z.string().describe('Material del que está hecho mayoritariamente.'),
+  uso_previsto: z.string().describe('Función o uso del producto.'),
+  hs_code_sugerido_6_digitos: z.string().describe('Subpartida arancelaria a 6 dígitos estimada.'),
+});
 
 /**
- * Fase 5: Extractor de Visión Estructurada y Pipeline de Clasificación
+ * Fase 6: Pipeline de Visión Multi-Cerebro con Resiliencia Total
  */
 export async function POST(req: Request) {
+  const startTime = Date.now();
+  
   try {
     const { 
       imageBase64, 
@@ -24,41 +43,106 @@ export async function POST(req: Request) {
     }
 
     const base64Data = imageBase64.split(',')[1] || imageBase64;
+    let visualData: any = null;
+    let fallbackCerebro = "Desconocido";
 
-    // ── PASO 1: Extracción Visual Estructurada (OpenAI GPT-4o) ──
-    const { object: visualData } = await generateObject({
-      model: openai('gpt-4o'),
-      schema: z.object({
-        nombre_tecnico: z.string().describe('Nombre específico y técnico del producto.'),
-        material_principal: z.string().describe('Material del que está hecho mayoritariamente.'),
-        uso_previsto: z.string().describe('Función o uso del producto.'),
-        hs_code_sugerido_6_digitos: z.string().describe('Subpartida arancelaria a 6 dígitos estimada.'),
-      }),
-      messages: [
-        {
-          role: 'user',
-          content: [
-            { type: 'text', text: 'Analiza detalladamente esta imagen para propósitos de clasificación aduanera.' },
-            { type: 'image', image: base64Data },
+    // ── PASO 1: Análisis Visual Multi-Cerebro ──
+    const visionSystemPrompt = 'Analiza detalladamente esta imagen para propósitos de clasificación aduanera. Extrae datos precisos en formato JSON.';
+
+    // Intento 1: GROQ (Llama 3.2 Vision) - Ultra-rápido
+    try {
+      console.log(`[SCAN-1] Intentando Groq Vision (${Date.now() - startTime}ms)...`);
+      const { object } = await generateObject({
+        model: groq('llama-3.2-11b-vision-preview'),
+        schema: ScanSchema,
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: visionSystemPrompt },
+              { type: 'image', image: base64Data },
+            ],
+          },
+        ],
+      });
+      visualData = object;
+      fallbackCerebro = "Groq Vision";
+    } catch (e1) {
+      console.error("[!] Groq Vision falló:", (e1 as any).message);
+      
+      // Intento 2: OPENAI (GPT-4o) - Profundidad visual
+      try {
+        console.log(`[SCAN-2] Intentando OpenAI GPT-4o (${Date.now() - startTime}ms)...`);
+        const { object } = await generateObject({
+          model: openai('gpt-4o'),
+          schema: ScanSchema,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                { type: 'text', text: visionSystemPrompt },
+                { type: 'image', image: base64Data },
+              ],
+            },
           ],
-        },
-      ],
-    });
+        });
+        visualData = object;
+        fallbackCerebro = "OpenAI GPT-4o";
+      } catch (e2) {
+        console.error("[!] OpenAI Vision falló:", (e2 as any).message);
+
+        // Intento 3: GEMINI (1.5 Flash) - Respaldo robusto
+        try {
+          console.log(`[SCAN-3] Intentando Gemini Vision (${Date.now() - startTime}ms)...`);
+          const { object } = await generateObject({
+            model: google('gemini-1.5-flash'),
+            schema: ScanSchema,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: visionSystemPrompt },
+                  { type: 'image', image: base64Data },
+                ],
+              },
+            ],
+          });
+          visualData = object;
+          fallbackCerebro = "Gemini Flash";
+        } catch (e3) {
+          console.error("[!] Total Vision failure.");
+          throw new Error("Ningún motor de visión pudo analizar la imagen. Revisa los créditos de API.");
+        }
+      }
+    }
 
     // ── PASO 2: Búsqueda del Arancel Real en la Base de Datos (RAG) ──
     const embedding = await getEmbedding(visualData.nombre_tecnico);
     const supabase = await createServerSideClient();
     
-    const { data: matches, error: rpcError } = await supabase.rpc('match_aranceles', {
+    const { data: matches } = await supabase.rpc('match_aranceles', {
       query_embedding: embedding,
       match_threshold: 0.5,
-      match_count: 1, // Tomamos la mejor coincidencia
+      match_count: 1, 
     });
 
-    const matchReal = matches && matches.length > 0 ? matches[0] : null;
+    let matchReal = matches && matches.length > 0 ? matches[0] : null;
+    let webContext = "";
 
-    // ── PASO 3: Motor de Cálculo Determinista (Fase 3) ──
-    // Si no hay match real, usamos el arancel sugerido por la IA o 0
+    // ── PASO 3: Inteligencia Web Autónoma (Si no hay match local claro) ──
+    if (!matchReal || matchReal.similarity < 0.7) {
+      console.log(`[SCAN-WEB] Realizando búsqueda web de apoyo...`);
+      try {
+        const searchResults = await searchWeb(`arancel aduana venezuela 2026 ${visualData.nombre_tecnico}`);
+        if (searchResults && searchResults.length > 0) {
+          webContext = searchResults.slice(0, 2).map(r => `${r.snippet} (Fuente: ${r.link})`).join("\n");
+        }
+      } catch (searchError) {
+        console.error("[!] Error en búsqueda de apoyo para el escáner:", searchError);
+      }
+    }
+
+    // ── PASO 4: Motor de Cálculo Determinista ──
     const tasaFinal = matchReal ? Number(matchReal.standard_arancel) : 0;
     
     const calculo = calcularCostosNacionalizacion({
@@ -74,19 +158,25 @@ export async function POST(req: Request) {
     return Response.json({
       success: true,
       data: {
+        cerebro_activo: fallbackCerebro,
         analisis_visual: visualData,
+        web_discovery: webContext || "Uso de base de datos maestra para clasificación",
         database_match: matchReal ? {
           nombre_oficial: matchReal.name,
           hs_code_oficial: matchReal.hs_code,
           similitud: Math.round(matchReal.similarity * 100) + "%",
           restricciones: matchReal.restricciones
-        } : { info: "No se encontró coincidencia exacta en la base de datos maestra" },
-        calculo_estimado: calculo
+        } : { info: "No se encontró coincidencia exacta en la base de datos local." },
+        calculo_estimado: calculo,
+        timing: Date.now() - startTime
       }
     });
 
   } catch (error: any) {
-    console.error("Pipeline Error:", error);
-    return Response.json({ error: error.message || "Error procesando el pipeline de visión" }, { status: 500 });
+    console.error("Scanner Pipeline Error:", error);
+    return Response.json({ 
+      error: error.message || "Error procesando el pipeline de visión",
+      code: 'SCAN_PIPELINE_FAILURE'
+    }, { status: 500 });
   }
 }
