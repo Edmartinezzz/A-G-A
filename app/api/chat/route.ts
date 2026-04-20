@@ -86,12 +86,14 @@ Estructura: Resumen, Desglose, Alertas.
 ${systemContext}
 `;
 
-    console.log(`[PASO 3] Iniciando Stream con Gemini (${Date.now() - startTime}ms)...`);
+    console.log(`[PASO 3] Iniciando Stream con Gemini Pro (${Date.now() - startTime}ms)...`);
+    const apiKeyExists = !!process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    console.log(`[DEBUG] API Key detectada: ${apiKeyExists ? 'SÍ' : 'NO'}`);
 
     // ── PASO 2: Streaming con Gemini ──
     try {
       const result = await streamText({
-        model: googleProvider('gemini-1.5-flash-latest'),
+        model: googleProvider('gemini-1.5-pro-latest'),
         system: FINAL_SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         temperature: 0.1,
