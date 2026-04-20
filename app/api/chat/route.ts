@@ -93,10 +93,15 @@ ${systemContext}
 
     // ── PASO 2: Streaming con Gemini ──
     try {
+      // Inyectamos el prompt de sistema manualmente para evitar el error "systemInstruction" en v1
+      const augmentedMessages = [
+        { role: 'system', content: FINAL_SYSTEM_PROMPT } as any,
+        ...messages
+      ];
+
       const result = await streamText({
         model: googleProvider('gemini-1.5-flash'),
-        system: FINAL_SYSTEM_PROMPT,
-        messages: await convertToModelMessages(messages),
+        messages: await convertToModelMessages(augmentedMessages),
         temperature: 0.1,
         onFinish: async ({ text }) => {
           console.log(`[PASO 4] Generación terminada. Guardando historial (${Date.now() - startTime}ms)...`);
