@@ -95,7 +95,10 @@ ${systemContext}
     try {
       // Inyectamos el prompt de sistema manualmente para evitar el error "systemInstruction" en v1
       const augmentedMessages = [
-        { role: 'system', content: FINAL_SYSTEM_PROMPT } as any,
+        { 
+          role: 'system', 
+          parts: [{ type: 'text', text: FINAL_SYSTEM_PROMPT }] 
+        } as any,
         ...messages
       ];
 
