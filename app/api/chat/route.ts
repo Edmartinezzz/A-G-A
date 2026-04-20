@@ -107,9 +107,9 @@ ${systemContext}
 
     // INTENTO 1: GROQ (Llama 3) - Ahora como PRIMARIO por su alta fiabilidad
     try {
-      console.log(`[CEREBRO 1] Usando Groq Llama 3 (${Date.now() - startTime}ms)...`);
+      console.log(`[CEREBRO 1] Usando Groq Llama 3.3 (${Date.now() - startTime}ms)...`);
       const result = await streamText({
-        model: groq('llama-3.1-70b-versatile'),
+        model: groq('llama-3.3-70b-versatile'),
         system: FINAL_SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         temperature: 0.1,
