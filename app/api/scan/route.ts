@@ -69,7 +69,8 @@ export async function POST(req: Request) {
       visualData = object;
       fallbackCerebro = "Gemini Flash (Estable)";
     } catch (e1: any) {
-      console.warn("[!] Gemini fallback activado:", e1.message);
+      const geminiError = e1.message || "Error desconocido";
+      console.warn("[!] Gemini failed:", geminiError);
       
       // Fallback a Groq (Llama 3.2 11B Vision) - Lo más rápido si Gemini falla
       try {
@@ -90,8 +91,9 @@ export async function POST(req: Request) {
         visualData = object;
         fallbackCerebro = "Groq Llama 3.2 (Respaldo)";
       } catch (e2: any) {
-        console.error("[!] Total Vision failure.");
-        throw new Error("Ningún motor de visión pudo analizar la imagen en el tiempo límite.");
+        const groqError = e2.message || "Error desconocido";
+        console.error("[!] Groq failed:", groqError);
+        throw new Error(`Total Vision Failure. \nGemini: ${geminiError} \nGroq: ${groqError}`);
       }
     }
 
