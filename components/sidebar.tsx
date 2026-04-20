@@ -36,7 +36,12 @@ const countries = [
 
 const mainRoutes = [
   {
-    label: "Dashboard",
+    label: "Página Principal",
+    icon: LayoutDashboard,
+    href: "/",
+  },
+  {
+    label: "Panel de Control",
     icon: LayoutDashboard,
     href: "/dashboard",
   },
