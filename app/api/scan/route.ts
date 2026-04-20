@@ -52,11 +52,11 @@ export async function POST(req: Request) {
     // ── PASO 1: Análisis Visual Multi-Cerebro ──
     const visionSystemPrompt = 'Analiza detalladamente esta imagen para propósitos de clasificación aduanera. Extrae datos precisos en formato JSON.';
 
-    // Intento 1: GROQ (Llama 3.2 Vision) - Ultra-rápido
+    // Intento 1: GROQ (Llama 4 Scout) - Ultra-rápido y Multimodal
     try {
       console.log(`[SCAN-1] Intentando Groq Vision (${Date.now() - startTime}ms)...`);
       const { object } = await generateObject({
-        model: groq('llama-3.2-11b-vision-preview'),
+        model: groq('meta-llama/llama-4-scout-17b-16e-instruct'),
         schema: ScanSchema,
         messages: [
           {
@@ -69,38 +69,46 @@ export async function POST(req: Request) {
         ],
       });
       visualData = object;
-      fallbackCerebro = "Groq Vision";
+      fallbackCerebro = "Groq Llama 4";
     } catch (e1: any) {
       console.error("[!] Groq Vision falló:", e1.message);
       lastError = `Groq: ${e1.message}`;
       
-      // Intento 2: OPENAI (GPT-4o) - Profundidad visual
-      try {
-        console.log(`[SCAN-2] Intentando OpenAI GPT-4o (${Date.now() - startTime}ms)...`);
-        const { object } = await generateObject({
-          model: openai('gpt-4o'),
-          schema: ScanSchema,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                { type: 'text', text: visionSystemPrompt },
-                { type: 'image', image: imageBuffer },
-              ],
-            },
-          ],
-        });
-        visualData = object;
-        fallbackCerebro = "OpenAI GPT-4o";
-      } catch (e2: any) {
-        console.error("[!] OpenAI Vision falló:", e2.message);
-        lastError += ` | OpenAI: ${e2.message}`;
+      // Intento 2: OPENAI (GPT-4o) - Solo si hay API Key configurada
+      const hasOpenAI = !!process.env.OPENAI_API_KEY;
+      if (hasOpenAI) {
+        try {
+          console.log(`[SCAN-2] Intentando OpenAI GPT-4o (${Date.now() - startTime}ms)...`);
+          const { object } = await generateObject({
+            model: openai('gpt-4o'),
+            schema: ScanSchema,
+            messages: [
+              {
+                role: 'user',
+                content: [
+                  { type: 'text', text: visionSystemPrompt },
+                  { type: 'image', image: imageBuffer },
+                ],
+              },
+            ],
+          });
+          visualData = object;
+          fallbackCerebro = "OpenAI GPT-4o";
+        } catch (e2: any) {
+          console.error("[!] OpenAI Vision falló:", e2.message);
+          lastError += ` | OpenAI: ${e2.message}`;
+        }
+      } else {
+        console.log("[SCAN-SKIP] OpenAI saltado (Sin API Key)");
+        lastError += " | OpenAI: Saltado (Sin Key)";
+      }
 
-        // Intento 3: GEMINI (1.5 Flash) - Respaldo robusto
+      // Intento 3: GEMINI (1.5 Flash Latest) - Respaldo robusto si visualData sigue vacío
+      if (!visualData) {
         try {
           console.log(`[SCAN-3] Intentando Gemini Vision (${Date.now() - startTime}ms)...`);
           const { object } = await generateObject({
-            model: google('gemini-1.5-flash'),
+            model: google('gemini-1.5-flash-latest'),
             schema: ScanSchema,
             messages: [
               {
