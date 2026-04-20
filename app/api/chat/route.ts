@@ -105,11 +105,11 @@ ${systemContext}
       }
     };
 
-    // Intento 1: GEMINI (Google)
+    // INTENTO 1: GROQ (Llama 3) - Ahora como PRIMARIO por su alta fiabilidad
     try {
-      console.log(`[CEREBRO 1] Intentando Gemini (${Date.now() - startTime}ms)...`);
+      console.log(`[CEREBRO 1] Usando Groq Llama 3 (${Date.now() - startTime}ms)...`);
       const result = await streamText({
-        model: google('gemini-1.5-flash'),
+        model: groq('llama-3.1-70b-versatile'),
         system: FINAL_SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         temperature: 0.1,
@@ -117,13 +117,13 @@ ${systemContext}
       });
       return result.toUIMessageStreamResponse();
     } catch (e1) {
-      console.error("[!] CEREBRO 1 (Gemini) falló:", (e1 as any).message);
-      
-      // Intento 2: GROQ (Llama 3)
+      console.error("[!] CEREBRO 1 (Groq) falló:", (e1 as any).message);
+
+      // INTENTO 2: SILICONFLOW (DeepSeek V3)
       try {
-        console.log(`[CEREBRO 2] Intentando Groq Llama 3 (${Date.now() - startTime}ms)...`);
+        console.log(`[CEREBRO 2] Usando SiliconFlow DeepSeek (${Date.now() - startTime}ms)...`);
         const result = await streamText({
-          model: groq('llama-3.1-70b-versatile'),
+          model: siliconflow('deepseek-ai/DeepSeek-V3'),
           system: FINAL_SYSTEM_PROMPT,
           messages: await convertToModelMessages(messages),
           temperature: 0.1,
@@ -131,13 +131,13 @@ ${systemContext}
         });
         return result.toUIMessageStreamResponse();
       } catch (e2) {
-        console.error("[!] CEREBRO 2 (Groq) falló:", (e2 as any).message);
-        
-        // Intento 3: SILICONFLOW (DeepSeek V3)
+        console.error("[!] CEREBRO 2 (SiliconFlow) falló:", (e2 as any).message);
+
+        // INTENTO 3: GEMINI (Google) - Como respaldo mientras se investiga el error de modelo
         try {
-          console.log(`[CEREBRO 3] Intentando SiliconFlow DeepSeek (${Date.now() - startTime}ms)...`);
+          console.log(`[CEREBRO 3] Intentando Gemini (${Date.now() - startTime}ms)...`);
           const result = await streamText({
-            model: siliconflow('deepseek-ai/DeepSeek-V3'),
+            model: google('gemini-1.5-flash'),
             system: FINAL_SYSTEM_PROMPT,
             messages: await convertToModelMessages(messages),
             temperature: 0.1,
@@ -145,9 +145,9 @@ ${systemContext}
           });
           return result.toUIMessageStreamResponse();
         } catch (e3) {
-          console.error("[!] CEREBRO 3 (SiliconFlow) falló:", (e3 as any).message);
+          console.error("[!] CEREBRO 3 (Gemini) falló:", (e3 as any).message);
 
-          // Intento 4: HUGGING FACE (Llama 8B)
+          // INTENTO 4: HUGGING FACE (Llama 8B)
           try {
             console.log(`[CEREBRO 4] Intentando Hugging Face (${Date.now() - startTime}ms)...`);
             const result = await streamText({
