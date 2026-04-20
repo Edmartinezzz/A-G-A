@@ -34,34 +34,53 @@ export default function EscanerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   
   const [hasCamera, setHasCamera] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [showResult, setShowResult] = useState(false)
   const [resultData, setResultData] = useState<any>(null)
   const [previewImage, setPreviewImage] = useState<string | null>(null)
   const [flash, setFlash] = useState(false)
-
+  
   // Inicializar cámara si es posible
   useEffect(() => {
+    let currentStream: MediaStream | null = null;
+
     async function startCamera() {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ 
-          video: { facingMode: 'environment' },
+          video: { 
+            facingMode: 'environment',
+            width: { ideal: 1280 },
+            height: { ideal: 720 }
+          },
           audio: false 
         })
+        
+        currentStream = stream;
+
         if (videoRef.current) {
           videoRef.current.srcObject = stream
-          setHasCamera(true)
+          videoRef.current.onloadedmetadata = () => {
+            videoRef.current?.play().catch(e => {
+              console.error("Autoplay preventer:", e);
+              setCameraError("Toca la pantalla para activar la cámara.");
+            });
+            setHasCamera(true)
+            setCameraError(null)
+          }
         }
-      } catch (err) {
+      } catch (err: any) {
         console.warn("Cámara no disponible, usando modo carga de archivo:", err)
         setHasCamera(false)
+        setCameraError(err.message || "Error al acceder a la cámara")
       }
     }
+    
     startCamera()
     
     return () => {
-      if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop())
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop())
       }
     }
   }, [])
@@ -144,12 +163,19 @@ export default function EscanerPage() {
           autoPlay 
           playsInline 
           muted 
-          className="absolute inset-0 h-full w-full object-cover"
+          className="absolute inset-0 h-full w-full object-cover z-0"
         />
       ) : (
-        <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-4">
+        <div className="absolute inset-0 bg-slate-900 flex flex-col items-center justify-center text-slate-500 gap-4 px-6 text-center">
+           {cameraError && (
+             <div className="mb-4 bg-red-500/10 border border-red-500/20 p-4 rounded-2xl animate-in fade-in slide-in-from-top-4">
+                <p className="text-[10px] font-black text-red-400 uppercase tracking-widest mb-1 italic">Advertencia</p>
+                <p className="text-xs text-white font-medium">{cameraError}</p>
+             </div>
+           )}
            <Camera className="h-12 w-12 opacity-20" />
            <p className="text-xs font-bold uppercase tracking-widest">Modo Carga Activo</p>
+           <p className="text-[10px] opacity-60">Sube un archivo usando el botón inferior</p>
         </div>
       )}
       
