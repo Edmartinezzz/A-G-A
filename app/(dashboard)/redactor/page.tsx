@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from "lucide-react"
+import { supabase } from "@/lib/supabase"
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -136,7 +137,23 @@ export default function RedactorPage() {
         heightLeft -= pageHeight
       }
 
-      pdf.save("documento_oficial_aga.pdf")
+      const fileName = `documento_oficial_aga_${new Date().getTime()}.pdf`
+      pdf.save(fileName)
+
+      // Registrar en la base de datos
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          await supabase.from('documents').insert({
+            user_id: user.id,
+            name: fileName,
+            type: 'redactor',
+            size: `${(imgData.length / 1024 / 1024).toFixed(1)} MB`
+          })
+        }
+      } catch (dbErr) {
+        console.error("Error registering document in DB:", dbErr)
+      }
       
     } catch (error) {
       console.error("Error al exportar PDF:", error)

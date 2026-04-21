@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { usePathname } from "next/navigation"
 import { motion } from "framer-motion"
 import { 
@@ -11,7 +12,8 @@ import {
   Menu,
   ChevronRight,
   LogOut,
-  User
+  User,
+  Loader2
 } from "lucide-react"
 import { MobileSidebar } from "@/components/mobile-sidebar"
 import { Button } from "@/components/ui/button"
@@ -39,7 +41,31 @@ const routeTitles: Record<string, string> = {
 export function Topbar() {
   const pathname = usePathname()
   const router = useRouter()
+  const [profile, setProfile] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const title = routeTitles[pathname] || "A-G-A"
+
+  useEffect(() => {
+    async function getProfile() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+          
+          if (!error) setProfile(data)
+        }
+      } catch (err) {
+        console.error("Error fetching profile:", err)
+      } finally {
+        setLoading(false)
+      }
+    }
+    getProfile()
+  }, [])
 
   const handleLogout = async () => {
     try {
@@ -111,13 +137,23 @@ export function Topbar() {
           <DropdownMenuTrigger asChild>
             <div className="flex items-center gap-3 pl-1 group cursor-pointer outline-none">
                <div className="hidden sm:flex flex-col text-right">
-                  <span className="text-[12px] font-syne font-bold text-slate-100 tracking-wide group-hover:text-indigo-400 transition-colors">Admin P.</span>
-                  <span className="text-[9px] text-slate-400 font-bold tracking-[0.15em] uppercase">Control M.</span>
+                  {loading ? (
+                    <div className="h-4 w-20 bg-white/5 animate-pulse rounded" />
+                  ) : (
+                    <>
+                      <span className="text-[12px] font-syne font-bold text-slate-100 tracking-wide group-hover:text-indigo-400 transition-colors uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
+                        {profile?.full_name || 'Agente A-G-A'}
+                      </span>
+                      <span className="text-[9px] text-slate-400 font-bold tracking-[0.15em] uppercase whitespace-nowrap overflow-hidden text-ellipsis max-w-[120px]">
+                        {profile?.company_name || 'Logística Pro'}
+                      </span>
+                    </>
+                  )}
                </div>
                <div className="h-10 w-10 sm:h-11 sm:w-11 rounded-full bg-gradient-to-tr from-indigo-500 to-rose-500 p-[2px] shadow-lg transition-transform group-hover:scale-105 group-hover:rotate-3 duration-300">
                   <div className="h-full w-full rounded-full overflow-hidden bg-[#02040a] border border-[#02040a]">
                     <img 
-                      src="https://api.dicebear.com/7.x/avataaars/svg?seed=Felix&backgroundColor=02040a" 
+                      src={profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${profile?.full_name || 'Admin'}&backgroundColor=02040a`}
                       alt="Avatar"
                       className="w-full h-full object-cover"
                     />
@@ -128,11 +164,11 @@ export function Topbar() {
           <DropdownMenuContent align="end" className="w-56 glass-premium border-white/10 text-slate-200 p-2 rounded-2xl">
             <DropdownMenuLabel className="font-syne font-bold px-2 py-1.5 text-xs text-indigo-400 uppercase tracking-widest">Mi Cuenta</DropdownMenuLabel>
             <DropdownMenuSeparator className="bg-white/5" />
-            <DropdownMenuItem className="gap-3 focus:bg-white/10 focus:text-white cursor-pointer rounded-xl p-3 transition-colors">
+            <DropdownMenuItem className="gap-3 focus:bg-white/10 focus:text-white cursor-pointer rounded-xl p-3 transition-colors" onClick={() => router.push("/perfil")}>
               <User className="h-4 w-4 text-slate-400" />
               <span className="text-sm font-medium">Ver Perfil</span>
             </DropdownMenuItem>
-            <DropdownMenuItem className="gap-3 focus:bg-white/10 focus:text-white cursor-pointer rounded-xl p-3 transition-colors">
+            <DropdownMenuItem className="gap-3 focus:bg-white/10 focus:text-white cursor-pointer rounded-xl p-3 transition-colors" onClick={() => router.push("/ajustes")}>
               <Settings className="h-4 w-4 text-slate-400" />
               <span className="text-sm font-medium">Ajustes</span>
             </DropdownMenuItem>

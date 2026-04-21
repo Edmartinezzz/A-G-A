@@ -44,13 +44,26 @@ import { supabase } from "@/lib/supabase"
 export default function DashboardPage() {
   const router = useRouter()
   const [data, setData] = useState<any>(null)
+  const [profile, setProfile] = useState<any>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        const { data: analytics, error } = await supabase.rpc('get_user_analytics');
-        if (!error) setData(analytics);
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          // Fetch Profile
+          const { data: profileData } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .single()
+          setProfile(profileData)
+
+          // Fetch Analytics
+          const { data: analytics, error } = await supabase.rpc('get_user_analytics');
+          if (!error) setData(analytics);
+        }
       } catch (err) {
         console.error("Error fetching analytics:", err);
       } finally {
@@ -100,7 +113,9 @@ export default function DashboardPage() {
           <div className="space-y-4">
             <h2 className="text-5xl md:text-[5rem] font-syne font-bold tracking-tight leading-[0.9] drop-shadow-lg">
               Saludos, <br />
-              <span className="aurora-text font-black tracking-tighter">Comandante Ady.</span>
+              <span className="aurora-text font-black tracking-tighter">
+                {profile?.full_name ? profile.full_name : 'Operador A-G-A'}
+              </span>
             </h2>
             <p className="text-slate-300 font-pjs text-lg max-w-lg leading-relaxed font-medium">
               El centro neurálgico de tus operaciones internacionales está en línea. Clasificación, impuestos y análisis en un solo lugar.
@@ -137,10 +152,10 @@ export default function DashboardPage() {
       {/* KPI Cards Grid - Bento Hub Layout */}
       <section className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
         {[
-          { title: "Valor Operado", value: `$${totalImportado.toLocaleString()}`, icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", shadow: "shadow-[0_0_20px_rgba(52,211,153,0.15)]", trend: "+12% este mes" },
-          { title: "Margen Ahorro", value: `$${(totalImpuestos * 0.1).toLocaleString()}`, icon: TrendingUp, color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20", shadow: "shadow-[0_0_20px_rgba(34,211,238,0.15)]", trend: "Optimizado" },
+          { title: "Valor Operado", value: totalImportado > 0 ? `$${totalImportado.toLocaleString()}` : "$0", icon: DollarSign, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", shadow: "shadow-[0_0_20px_rgba(52,211,153,0.15)]", trend: totalImportado > 0 ? "+12% este mes" : "Sin actividad" },
+          { title: "Margen Ahorro", value: totalImpuestos > 0 ? `$${(totalImpuestos * 0.1).toLocaleString()}` : "$0", icon: TrendingUp, color: "text-cyan-400", bg: "bg-cyan-500/10", border: "border-cyan-500/20", shadow: "shadow-[0_0_20px_rgba(34,211,238,0.15)]", trend: totalImpuestos > 0 ? "Optimizado" : "En espera" },
           { title: "Poder de Cómputo", value: data?.total_queries || "Pro", icon: Zap, color: "text-indigo-400", bg: "bg-indigo-500/10", border: "border-indigo-500/20", shadow: "shadow-[0_0_20px_rgba(99,102,241,0.15)]", trend: "Infinito" },
-          { title: "Riesgo Aduanal", value: "Bajo", icon: ShieldCheck, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", shadow: "shadow-[0_0_20px_rgba(52,211,153,0.15)]", trend: "Auditoría OK" },
+          { title: "Riesgo Aduanal", value: totalImportado > 0 ? "Bajo" : "N/A", icon: ShieldCheck, color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/20", shadow: "shadow-[0_0_20px_rgba(52,211,153,0.15)]", trend: totalImportado > 0 ? "Auditoría OK" : "Pendiente" },
         ].map((kpi, i) => (
           <motion.div
             key={i}
