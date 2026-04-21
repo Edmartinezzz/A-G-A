@@ -58,6 +58,17 @@ export async function proxy(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Permitir acceso público a archivos de PWA y estáticos
+  if (
+    pathname === '/manifest.json' ||
+    pathname === '/sw.js' ||
+    pathname.startsWith('/icon-') ||
+    pathname.startsWith('/_next') ||
+    pathname.includes('favicon.ico')
+  ) {
+    return response
+  }
+
   // Proteger rutas de dashboard y raíz
   if (!user && (pathname.startsWith('/dashboard') || pathname === '/')) {
     const url = request.nextUrl.clone()
@@ -83,6 +94,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon\\.ico|manifest\\.json|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
