@@ -22,8 +22,8 @@ export default function BusinessDashboardPage() {
         </div>
       </div>
 
-      {/* KPIs Rápidos */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* KPIs Rápidos - Mejor densidad en móvil */}
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <KPICard 
           title="Importaciones Activas"
           value="4"
@@ -122,16 +122,16 @@ export default function BusinessDashboardPage() {
 
 function KPICard({ title, value, sub, icon: Icon, color, bg }: any) {
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm hover:shadow-md transition cursor-default">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-sm font-medium text-slate-500 dark:text-slate-400">{title}</h3>
-        <div className={`p-2 rounded-lg ${bg}`}>
-          <Icon className={`h-4 w-4 ${color}`} />
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 md:p-6 shadow-sm hover:shadow-md transition cursor-default">
+      <div className="flex items-center justify-between mb-2 md:mb-4">
+        <h3 className="text-[10px] md:text-sm font-medium text-slate-500 dark:text-slate-400 truncate">{title}</h3>
+        <div className={`p-1.5 md:p-2 rounded-lg ${bg} shrink-0`}>
+          <Icon className={`h-3 w-3 md:h-4 md:w-4 ${color}`} />
         </div>
       </div>
       <div>
-        <h2 className="text-3xl font-bold text-slate-800 dark:text-slate-100 mb-1">{value}</h2>
-        <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">{sub}</p>
+        <h2 className="text-xl md:text-3xl font-bold text-slate-800 dark:text-slate-100 mb-0.5 md:mb-1">{value}</h2>
+        <p className="text-[9px] md:text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{sub}</p>
       </div>
     </div>
   )

@@ -5,6 +5,9 @@ import { Sidebar } from "@/components/sidebar"
 import { 
   Sheet, 
   SheetContent, 
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
   SheetTrigger 
 } from "@/components/ui/sheet"
 import { Button } from "@/components/ui/button"
@@ -29,9 +32,10 @@ export function MobileSidebar() {
         </Button>
       </SheetTrigger>
       <SheetContent side="left" className="p-0 bg-[#0F172A] border-none">
-        <div className="sr-only">
-          <h2>Menú de Navegación</h2>
-        </div>
+        <SheetHeader className="sr-only">
+          <SheetTitle>Menú de Navegación</SheetTitle>
+          <SheetDescription>Accede a todas las herramientas de gestión aduanera de A-G-A.</SheetDescription>
+        </SheetHeader>
         <Sidebar aria-label="Navegación Móvil" />
       </SheetContent>
     </Sheet>

@@ -1,5 +1,6 @@
-import { Package } from "lucide-react";
+import { Package, Globe, ShieldCheck, Sparkles } from "lucide-react";
 import Link from "next/link";
+import { AGALogo } from "@/components/aga-logo";
 
 export default function AuthLayout({
   children,
@@ -7,61 +8,80 @@ export default function AuthLayout({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-6 md:p-10 overflow-hidden">
-      {/* Background with Image and Overlay */}
-      <div 
-        className="absolute inset-0 z-0 bg-cover bg-center bg-no-repeat transition-transform duration-1000 hover:scale-105"
-        style={{ backgroundImage: "url('/assets/login-bg.png')" }}
-      />
-      <div className="absolute inset-0 z-10 bg-slate-950/40 backdrop-blur-[2px] bg-gradient-to-br from-slate-950/80 via-slate-950/20 to-slate-950/80" />
+    <div className="relative min-h-screen w-full flex items-center justify-center p-6 md:p-10 overflow-hidden bg-[#02040a]">
+      {/* Immersive Cyber-Glass Background - Aurora Mesh */}
+      <div className="absolute inset-0 z-0">
+        <div className="absolute top-[-20%] left-[-10%] w-[70%] h-[70%] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-indigo-500/15 via-[#02040a]/5 to-transparent blur-[120px] rounded-full animate-[pulse_8s_ease-in-out_infinite] mix-blend-screen" />
+        <div className="absolute bottom-[-20%] right-[-10%] w-[70%] h-[70%] bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-emerald-500/15 via-[#02040a]/5 to-transparent blur-[120px] rounded-full animate-[pulse_10s_ease-in-out_infinite_alternate] mix-blend-screen" />
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-[0.04] mix-blend-overlay" />
+      </div>
+
+      <div className="absolute inset-0 z-10 backdrop-blur-[2px] bg-gradient-to-tr from-[#02040a] via-transparent to-[#02040a]/50" />
 
       {/* Content Container */}
-      <div className="relative z-20 w-full max-w-[1400px] grid lg:grid-cols-2 gap-10 items-center">
+      <div className="relative z-20 w-full max-w-[1400px] grid lg:grid-cols-2 gap-16 items-center">
         
-        {/* Left Side: Branding & Info */}
-        <div className="hidden lg:flex flex-col gap-8 text-white">
-          <Link href="/" className="flex items-center gap-3 font-bold text-3xl group transition-all">
-            <div className="bg-sky-500 rounded-2xl p-2 shadow-lg shadow-sky-500/40 group-hover:scale-110 transition-transform">
-               <Package className="h-7 w-7 text-white" />
-            </div>
-            <span className="tracking-tight">A-G-A</span>
+        {/* Left Side: Premium Branding & Vision */}
+        <div className="hidden lg:flex flex-col gap-10 text-white pl-8">
+          <Link href="/" className="flex items-center gap-4 group transition-all w-fit">
+            <AGALogo />
+            <div className="h-8 w-[1px] bg-white/10 mx-2" />
+            <span className="text-[10px] font-pjs font-bold uppercase tracking-[0.4em] text-indigo-400/80">Intelligence</span>
           </Link>
           
-          <div className="space-y-6 max-w-[550px] animate-in fade-in slide-in-from-left-8 duration-700">
-            <h1 className="text-5xl font-black tracking-tighter leading-tight">
-              Gestión Aduanal <br/>
-              <span className="text-sky-400">Inteligente</span> Potenciada por IA
+          <div className="space-y-8 max-w-[600px] animate-in fade-in slide-in-from-left-12 duration-1000">
+            <h1 className="text-[5rem] md:text-[6rem] font-syne font-bold tracking-tight leading-[0.85] drop-shadow-xl">
+              Futuro <br/>
+              <span className="aurora-text font-black tracking-tighter">Aduanal.</span>
             </h1>
-            <p className="text-xl text-slate-200/90 leading-relaxed font-medium">
-              La plataforma definitiva para el comercio exterior. Clasificación arancelaria, cálculo de impuestos y asesoría experta en un solo lugar.
+            <p className="text-xl text-slate-300 leading-relaxed font-pjs font-medium max-w-md">
+              Domina el comercio exterior con potencia neuronal. Clasificación de precisión, cálculo dinámico y seguridad absoluta.
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-6 mt-4 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-200">
-            <div className="p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl">
-               <span className="text-3xl font-black text-sky-400">+150</span>
-               <p className="text-sm font-bold text-slate-300 uppercase tracking-widest mt-1">Países Soportados</p>
+          <div className="flex gap-10 mt-6 animate-in fade-in slide-in-from-bottom-8 duration-1000 delay-300">
+            <div className="flex items-center gap-5 group cursor-default">
+               <div className="h-16 w-16 rounded-[1.5rem] glass-premium flex items-center justify-center group-hover:scale-110 group-hover:rotate-6 transition-all duration-500">
+                  <Globe className="h-7 w-7 text-emerald-400 group-hover:text-indigo-400 transition-colors" />
+               </div>
+               <div>
+                  <p className="text-3xl font-syne font-bold text-white tracking-tight">150+</p>
+                  <p className="text-[11px] font-pjs font-bold uppercase tracking-[0.2em] text-slate-500">Naciones</p>
+               </div>
             </div>
-            <div className="p-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-md shadow-2xl">
-               <span className="text-3xl font-black text-emerald-400">99.9%</span>
-               <p className="text-sm font-bold text-slate-300 uppercase tracking-widest mt-1">Precisión en IA</p>
+            
+            <div className="flex items-center gap-5 group cursor-default">
+               <div className="h-16 w-16 rounded-[1.5rem] glass-premium flex items-center justify-center group-hover:scale-110 group-hover:-rotate-6 transition-all duration-500">
+                  <ShieldCheck className="h-7 w-7 text-indigo-400 group-hover:text-emerald-400 transition-colors" />
+               </div>
+               <div>
+                  <p className="text-3xl font-syne font-bold text-white tracking-tight">99.9%</p>
+                  <p className="text-[11px] font-pjs font-bold uppercase tracking-[0.2em] text-slate-500">Exactitud</p>
+               </div>
             </div>
           </div>
         </div>
 
-        {/* Right Side: Auth Form */}
-        <div className="flex flex-col justify-center gap-6 w-full max-w-[480px] mx-auto animate-in fade-in zoom-in-95 duration-500">
-          <div className="bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] border border-white/20">
-            {children}
+        {/* Right Side: Auth Form with Glassmorphism */}
+        <div className="flex flex-col justify-center gap-6 w-full max-w-[480px] mx-auto animate-in fade-in zoom-in-95 duration-700">
+          <div className="glass-premium p-10 md:p-12 rounded-[2.5rem] relative overflow-hidden group">
+            {/* Ambient terminal glow */}
+            <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-500/10 blur-[80px] rounded-full -mr-20 -mt-20 group-hover:bg-emerald-500/10 transition-colors duration-1000" />
+            <div className="relative z-10">
+              {children}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Bottom Footer Info */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-20 hidden md:block">
-        <p className="text-[10px] font-bold text-white/40 uppercase tracking-[0.3em]">
-          Powered by A-G-A Neuronal Engine v2.0 • Security Verified
-        </p>
+      {/* Bottom Footer Meta */}
+      <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-20 hidden md:block">
+        <div className="flex items-center gap-4 bg-white/5 border border-white/5 px-6 py-2.5 rounded-full backdrop-blur-xl shadow-lg">
+           <Sparkles className="h-3.5 w-3.5 text-emerald-400" />
+           <p className="text-[10px] font-pjs font-bold text-slate-400 uppercase tracking-[0.25em]">
+             A-G-A Advanced Vision Engine • v4.0.0 • Ultra Certified
+           </p>
+        </div>
       </div>
     </div>
   );

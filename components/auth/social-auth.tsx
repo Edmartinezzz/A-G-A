@@ -28,38 +28,38 @@ export function SocialAuth() {
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-6">
       <div className="flex items-center gap-4">
-        <div className="h-[1px] w-full bg-slate-200 dark:bg-slate-800" />
-        <span className="text-xs uppercase text-muted-foreground whitespace-nowrap">O continuar con</span>
-        <div className="h-[1px] w-full bg-slate-200 dark:bg-slate-800" />
+        <div className="h-[1px] w-full bg-white/5" />
+        <span className="text-[10px] font-black uppercase tracking-[0.3em] text-slate-600 whitespace-nowrap">O por canal externo</span>
+        <div className="h-[1px] w-full bg-white/5" />
       </div>
       <div className="grid grid-cols-2 gap-4">
         <Button 
           variant="outline" 
           onClick={() => loginWithProvider("google")}
           disabled={!!isLoading}
-          className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-2xl h-12 transition-all group"
         >
           {isLoading === "google" ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <Icons.google className="mr-2 h-4 w-4" />
+            <Icons.google className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
           )}
-          Google
+          <span className="text-xs font-bold uppercase tracking-widest">Google</span>
         </Button>
         <Button 
           variant="outline" 
           onClick={() => loginWithProvider("github")}
           disabled={!!isLoading}
-          className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800"
+          className="bg-white/5 border-white/10 hover:bg-white/10 text-white rounded-2xl h-12 transition-all group"
         >
           {isLoading === "github" ? (
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
           ) : (
-            <Icons.gitHub className="mr-2 h-4 w-4" />
+            <Icons.gitHub className="mr-2 h-4 w-4 group-hover:scale-110 transition-transform" />
           )}
-          GitHub
+          <span className="text-xs font-bold uppercase tracking-widest">GitHub</span>
         </Button>
       </div>
     </div>
