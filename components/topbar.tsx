@@ -87,10 +87,10 @@ export function Topbar() {
         <Button 
           onClick={handleLogout}
           variant="ghost" 
-          className="hidden lg:flex items-center gap-2 h-9 px-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all font-bold text-[10px] uppercase tracking-widest mr-1"
+          className="flex items-center gap-2 h-9 px-2 sm:px-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 transition-all font-bold text-[10px] uppercase tracking-widest mr-1"
         >
-          <LogOut className="h-3.5 w-3.5" />
-          <span>Cerrar Sesión</span>
+          <LogOut className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
+          <span className="hidden sm:inline">Cerrar Sesión</span>
         </Button>
 
         {/* Connection Status Badge */}
