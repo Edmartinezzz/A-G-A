@@ -146,7 +146,7 @@ export default function RedactorPage() {
   }
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-700 h-[calc(100vh-100px)]">
+    <div className="space-y-8 animate-in fade-in duration-700 lg:h-[calc(100vh-100px)]">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between shrink-0">
         <div>
@@ -160,8 +160,8 @@ export default function RedactorPage() {
         </div>
       </div>
 
-      <div className="h-full pb-8">
-        <Tabs defaultValue="redactor" className="w-full lg:hidden h-full flex flex-col">
+      <div className="lg:h-full pb-8">
+        <Tabs defaultValue="redactor" className="w-full lg:hidden lg:h-full flex flex-col">
           <TabsList className="grid w-full grid-cols-2 bg-slate-900/50 border border-white/10 rounded-xl mb-4">
             <TabsTrigger value="redactor" className="data-[state=active]:bg-indigo-500 data-[state=active]:text-white rounded-lg transition-all">Redactor</TabsTrigger>
             <TabsTrigger value="preview" className="data-[state=active]:bg-indigo-500 data-[state=active]:text-white rounded-lg transition-all">Vista Previa</TabsTrigger>
