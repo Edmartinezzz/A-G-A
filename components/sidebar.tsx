@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { usePathname } from "next/navigation"
+import { usePathname, useRouter } from "next/navigation"
 import { motion } from "framer-motion"
+import { supabase } from "@/lib/supabase"
 import { cn } from "@/lib/utils"
 import { AGALogo } from "@/components/aga-logo"
 import { 
@@ -77,7 +78,18 @@ const mainRoutes = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [selectedCountry, setSelectedCountry] = useState(countries[0])
+
+  const handleLogout = async () => {
+    try {
+      await supabase.auth.signOut()
+      router.push("/login")
+      router.refresh()
+    } catch (error) {
+      console.error("Error al cerrar sesión:", error)
+    }
+  }
 
   return (
     <div className="flex flex-col h-full bg-transparent p-4">
@@ -193,7 +205,12 @@ export function Sidebar() {
              <Button variant="ghost" size="icon" className="flex-1 h-11 rounded-2xl bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:bg-white/10 hover:border-white/10 transition-all">
                 <Settings className="h-5 w-5" />
              </Button>
-             <Button variant="ghost" size="icon" className="flex-1 h-11 rounded-2xl bg-white/5 border border-white/5 text-slate-400 hover:text-red-400 hover:bg-red-500/15 hover:border-red-500/30 transition-all group">
+             <Button 
+                variant="ghost" 
+                size="icon" 
+                onClick={handleLogout}
+                className="flex-1 h-11 rounded-2xl bg-white/5 border border-white/5 text-slate-400 hover:text-red-400 hover:bg-red-500/15 hover:border-red-500/30 transition-all group"
+              >
                 <LogOut className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
              </Button>
           </div>
