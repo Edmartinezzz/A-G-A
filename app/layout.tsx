@@ -17,6 +17,13 @@ import { ThemeProvider } from "@/components/theme-provider";
 export const metadata: Metadata = {
   title: "A-G-A | Asistente de Gestión Aduanal",
   description: "Asistente inteligente de comercio exterior y aduanas",
+  manifest: "/manifest.json",
+  themeColor: "#0F172A",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "A-G-A",
+  },
 };
 
 export default function RootLayout({
@@ -35,6 +42,17 @@ export default function RootLayout({
         >
           {children}
         </ThemeProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              if ('serviceWorker' in navigator) {
+                window.addEventListener('load', function() {
+                  navigator.serviceWorker.register('/sw.js');
+                });
+              }
+            `,
+          }}
+        />
       </body>
     </html>
   );
